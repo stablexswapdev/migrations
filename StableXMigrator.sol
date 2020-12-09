@@ -502,8 +502,6 @@ contract StableXMigrator {
         desiredLiquidity = lp;
        
 
-        // from own wallet give allowance to migrate function
-
         // Returns the LP token to the old factory to retrieve the underlying assets upon Burn.
         orig.transferFrom(msg.sender, address(orig), lp);
         // This step burn removes the Liquidity and performs the check of the balance of the user
@@ -511,26 +509,34 @@ contract StableXMigrator {
         //  AmountA of token0 and AmountB of token1
         // check values
 
-
-        uint[] received = IPancakeRouter02.getAmountsOut(desiredLiquidity, [token0, token1]);
+        uint balanceA = addressToken0.balanceOf(address(this));
+        uint balanceB = addressToken1.balanceOf(address(this));
+        
         uint[] required = IStableXRouter02.getAmountsOut(desiredLiquidity, [token0, token1]);
         
         //  transferfrom allowed address to me
                 
-        if amountinA > needA  {
-            token0transfer_in
+        if (balanceA > required[0])  {
+            addressToken0.transfer(chef, received[0]-required[0]);
         }
         else {
-           transfer_out
+            addressToken0.transferFrom(chef, address(this), received[0]-required[0]);
+        }
+        
+        if (balanceB > required[1])  {
+            addressToken1.transfer(chef, received[1]-required[1]);
+        }
+        else {
+            addressToken1.transferFrom(chef, address(this), received[1]-required[1]);
         }
            
        
         // Here we need to perform the check of the pricing on the current pair and determine which asset we have too much of
         // use getAmountOut from the new pair 
-        pair.mint(msg.sender);
+        uint receivedLiquidity = pair.mint(msg.sender);
 
         //  check minted = desiredLiquidity
-        desiredLiquidity = uint256(-1);
+        require(desiredLiquidity == receivedLiquidity, "something went wrong??");
         return pair;
     }
 }
