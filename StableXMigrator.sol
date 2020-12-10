@@ -447,7 +447,6 @@ interface IPancakePair {
 
 // File: contracts/StableXMigrator.sol
 
-pragma solidity =0.6.6;
 pragma experimental ABIEncoderV2;
 
 
@@ -474,7 +473,7 @@ contract StableXMigrator is Ownable {
     // make a deposit/withdraw function for erc20s
     //   In theory the deposit can also be done manually via a transfer.
     //  In the future cna consider upgrading to safeTransfer from Openzeppelin
-    
+
     function deposit(IBEP20 token, uint amountIn) public {
         token.transferFrom(msg.sender, address(this), amountIn);
     }
@@ -482,7 +481,7 @@ contract StableXMigrator is Ownable {
     function withdrawAll(IBEP20 token) public onlyOwner {
         token.transfer(msg.sender, token.balanceOf(address(this)));
 }
-    
+
 
     function migrate(IPancakePair orig) public returns (IStableXPair) {
         require(msg.sender == chef, "not from master chef");
@@ -493,9 +492,9 @@ contract StableXMigrator is Ownable {
         address token1 = orig.token1();
         IBEP20 addressToken0 = IBEP20(token0);
         IBEP20 addressToken1 = IBEP20(token1);
-        
-        // In the future, upgrade to not hardcode the newQuoteRouter 
-        
+
+        // In the future, upgrade to not hardcode the newQuoteRouter
+
         IStableXRouter02 newQuoteRouter = IStableXRouter02(address(0x8f2A0d8865D995364DC6843D51Cf6989001f989e));
 
         IStableXPair pair = IStableXPair(factory.getPair(token0, token1));
@@ -506,9 +505,9 @@ contract StableXMigrator is Ownable {
         }
 
         uint256 lp = orig.balanceOf(msg.sender);
-        if (lp == 0) return pair;
+        require (lp != 0, "lp is not zero");
         desiredLiquidity = lp;
-       
+
 
         // Returns the LP token to the old factory to retrieve the underlying assets upon Burn.
         orig.transferFrom(msg.sender, address(orig), lp);
@@ -517,40 +516,28 @@ contract StableXMigrator is Ownable {
         //  AmountA of token0 and AmountB of token1
         // check values
 
-        uint balanceA = addressToken0.balanceOf(address(this));
-        uint balanceB = addressToken1.balanceOf(address(this));
-        
+        uint balanceToken0 = addressToken0.balanceOf(address(this));
+        uint balanceToken1 = addressToken1.balanceOf(address(this));
+
         // NewPrice
         address[] memory path = new address[](2);
-        // address[] memory path;
         path[0]=token0;
         path[1]=token1;
 
-        
         uint[] memory required = newQuoteRouter.getAmountsOut(desiredLiquidity, path);
-        
-        // Here top up or remove funds over to the migrator as necessary       
-        if (balanceA > required[0])  {
-            addressToken0.transfer(address(0x10F09b9942707cea0E18948F9E12E5160D008500), balanceA - required[0]);
-        }
-        else {
-            addressToken0.transferFrom(address(this), chef, balanceA - required[0]);
-        }
-        
-        if (balanceB > required[1])  {
-            addressToken1.transfer(address(0x10F09b9942707cea0E18948F9E12E5160D008500), balanceB - required[1]);
-        }
-        else {
-            addressToken1.transferFrom(address(this), chef, balanceB - required[1]);
-        }
-           
-       
+
+        // Here top up or remove funds over to the migrator as necessary
+        require(balanceToken0 > required[0], "not enough token 0");
+        require(balanceToken1 > required[1], "not enough token 1");
+        addressToken0.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken0 - required[0]);
+        addressToken1.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken1 - required[1]);
+
         // Here we need to perform the check of the pricing on the current pair and determine which asset we have too much of
-        // use getAmountOut from the new pair 
+        // use getAmountOut from the new pair
         uint receivedLiquidity = pair.mint(msg.sender);
 
         //  check minted = desiredLiquidity
-        require(desiredLiquidity == receivedLiquidity, "something went wrong??");
+        require(desiredLiquidity == receivedLiquidity, "desiredLiquidity is not receivedLiquidity");
         return pair;
     }
 }
