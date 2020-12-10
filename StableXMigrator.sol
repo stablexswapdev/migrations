@@ -484,7 +484,7 @@ contract StableXMigrator is Ownable {
 
 
     function migrate(IPancakePair orig) public returns (IStableXPair) {
-        require(msg.sender == chef, "not from master chef");
+        // require(msg.sender == chef, "not from master chef");
         require(block.number >= notBeforeBlock, "too early to migrate");
         require(orig.factory() == address(oldFactory), "not from old factory");
         // Here we gather the addresses of the two underlying tokens in the pool
@@ -526,14 +526,36 @@ contract StableXMigrator is Ownable {
 
         uint[] memory required = newQuoteRouter.getAmountsOut(desiredLiquidity, path);
 
-        // Here top up or remove funds over to the migrator as necessary
-        require(balanceToken0 > required[0], "not enough token 0");
-        require(balanceToken1 > required[1], "not enough token 1");
-        addressToken0.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken0 - required[0]);
-        addressToken1.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken1 - required[1]);
-
-        // Here we need to perform the check of the pricing on the current pair and determine which asset we have too much of
-        // use getAmountOut from the new pair
+        // Here we top up or remove funds over to the migrator as necessary
+        // require(balanceToken0 > required[0], "not enough token 0");
+        // require(balanceToken1 > required[1], "not enough token 1");
+        
+        if (balanceToken0 > required[0]) {
+            // Move Funds out of superChef to the hardcoded owner if there is excess
+            addressToken0.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken0 - required[0]);
+        }
+        else {
+            // Top up the chef address with the tokens it is short.
+            // This relies on the owner to give allowance to the contract to send on its behalf to fill up the chef
+            addressToken0.transferFrom(0x10F09b9942707cea0E18948F9E12E5160D008500,chef, required[0] - balanceToken0);
+        }
+        
+         if (balanceToken1 > required[1]) {
+            // Move Funds out of superChef to the hardcoded owner if there is excess
+            addressToken1.transfer(0x10F09b9942707cea0E18948F9E12E5160D008500, balanceToken1 - required[1]);
+        }
+        else {
+            // Top up the chef address with the tokens it is short.
+            // This relies on the owner to give allowance to the contract to send on its behalf to fill up the chef
+            addressToken1.transferFrom(0x10F09b9942707cea0E18948F9E12E5160D008500,chef, required[1] - balanceToken1);
+        }
+        
+        // Update balances of the two tokens now - they should be the correct amount now
+        balanceToken0 = addressToken0.balanceOf(address(this));
+        balanceToken1 = addressToken1.balanceOf(address(this));
+        require(balanceToken0 >= required[0], "too little token 0");
+        require(balanceToken1 >= required[1], "too little amount token 1");
+        
         uint receivedLiquidity = pair.mint(msg.sender);
 
         //  check minted = desiredLiquidity
